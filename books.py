@@ -47,8 +47,9 @@ def echo(message):
                 bot.send_message(-1001821573758,  message.text)
             else :
                 bookresult = c.execute('SELECT book_unique_id FROM books WHERE bookname LIKE ? ',(f"%{message.text}%",)).fetchall()
+                bookidnodeup = list(dict.fromkeys(bookresult))
                 markup = telebot.types.InlineKeyboardMarkup()
-                for book_data in bookresult:
+                for book_data in bookidnodeup:
                     book_unique_id = book_data[0]
                     book_name = c.execute('SELECT bookname FROM books WHERE book_unique_id=?',(book_unique_id,)).fetchone()[0]
                     markup.add(telebot.types.InlineKeyboardButton(book_name, callback_data=book_unique_id))
@@ -62,8 +63,9 @@ def echo(message):
                 bot.reply_to(message, "لا يوجد الكتاب في قاعدة البيانات , أرسله فضلاً هنا")
             else :
                 bookresult = c.execute('SELECT book_unique_id FROM books WHERE bookname LIKE ? ',(f"%{message.text}%",)).fetchall()
+                bookidnodeup = list(dict.fromkeys(bookresult))
                 markup = telebot.types.InlineKeyboardMarkup()
-                for book_data in bookresult:
+                for book_data in bookidnodeup:
                     book_unique_id = book_data[0]
                     book_name = c.execute('SELECT bookname FROM books WHERE book_unique_id=?',(book_unique_id,)).fetchone()[0]
                     markup.add(telebot.types.InlineKeyboardButton(book_name, callback_data=book_unique_id))
