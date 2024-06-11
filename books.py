@@ -27,15 +27,16 @@ conn.commit()
 @bot.message_handler(commands=['start', 'hello'])
 def start(message):
     bot.reply_to(message, "السلام عليكم ورحمة الله وبركاته \n أنا بوت البحث عن الكتب \n فقط أرسل اسم الكتاب  \n لبقية البوتات \n https://t.me/sunnaybots/2",disable_web_page_preview=True)
+
 @bot.message_handler(commands=['bakcup'])
 def start(message):
-    cmd(f'''uploadgram -1001821573758 books.db''')
+    cmd(f'''sudo uploadgram -1001821573758 books.db''')
 
 
 @bot.message_handler(content_types=['text','document'])
 @bot.message_handler(func=lambda message: True)
 def echo(message):
-        global user_id
+        global user_id,messagetobedeleted
         user_id = message.from_user.id
         if message.text and user_id != 6234365091 :
             conn_local = sqlite3.connect('books.db', check_same_thread=False)
@@ -45,13 +46,13 @@ def echo(message):
                 sentmessage = message.text + " 👇"
                 bot.send_message(-1001821573758,  message.text)
             else :
-                bookresult = c.execute('SELECT book_unique_id FROM books WHERE bookname LIKE ? ',(message.text,)).fetchall()
+                bookresult = c.execute('SELECT book_unique_id FROM books WHERE bookname LIKE ? ',(f"%{message.text}%",)).fetchall()
                 markup = telebot.types.InlineKeyboardMarkup()
                 for book_data in bookresult:
                     book_unique_id = book_data[0]
                     book_name = c.execute('SELECT bookname FROM books WHERE book_unique_id=?',(book_unique_id,)).fetchone()[0]
                     markup.add(telebot.types.InlineKeyboardButton(book_name, callback_data=book_unique_id))
-                bot.send_message(message.chat.id, "نتائج البحث", reply_markup=markup)
+                messagetobedeleted = bot.send_message(message.chat.id, "نتائج البحث", reply_markup=markup)
 
 
         elif message.text and user_id == 6234365091 :
@@ -66,7 +67,6 @@ def echo(message):
                     book_unique_id = book_data[0]
                     book_name = c.execute('SELECT bookname FROM books WHERE book_unique_id=?',(book_unique_id,)).fetchone()[0]
                     markup.add(telebot.types.InlineKeyboardButton(book_name, callback_data=book_unique_id))
-                global messagetobedeleted
                 messagetobedeleted = bot.send_message(message.chat.id, "نتائج البحث", reply_markup=markup)
         
 
