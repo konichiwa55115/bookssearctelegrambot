@@ -37,6 +37,11 @@ def start(message):
 def start(message):
     bot.reply_to(message, "الآن أرسل اسم المؤلف المراد إضافته")
     bot.register_next_step_handler(message, add_author)
+
+@bot.message_handler(commands=['append_name'])
+def start(message):
+    bot.reply_to(message, "الآن أرسل اسم الكتاب المراد إضافته")
+    bot.register_next_step_handler(message, add_new_name)
     
 @bot.message_handler(commands=['delete_book'])
 def start(message): 
@@ -62,6 +67,29 @@ def add_author(message):
     authornewname = message.text
     bot.reply_to(message, "الآن أرسل اسم المؤلف الأصلي ")
     bot.register_next_step_handler(message,add_oldauthor)
+
+def add_new_name(message):
+    global book_new_name
+    book_new_name = message.text
+    bot.reply_to(message, "الآن أرسل اسم الكتاب الأصلي ")
+    bot.register_next_step_handler(message,add_oldname)
+
+def add_oldname(message):
+    conn_local = sqlite3.connect('books.db', check_same_thread=False)
+    c_local = conn_local.cursor()
+    bookresult = c.execute('SELECT book_unique_id FROM books WHERE bookname LIKE ? ',(f"%{message.text}%",)).fetchall()
+    bookidnodeup = list(dict.fromkeys(bookresult))
+    markup = telebot.types.InlineKeyboardMarkup()
+    for book_data in bookidnodeup:
+                    book_unique_id = book_data[0]
+                    book_name = c.execute('SELECT bookname FROM books WHERE book_unique_id=?',(book_unique_id,)).fetchone()[0]
+                    markup.add(telebot.types.InlineKeyboardButton(book_name, callback_data=f"appendname{book_unique_id}"))
+    global messagetobedeleted2
+    messagetobedeleted2 = bot.send_message(message.chat.id, "نتائج البحث", reply_markup=markup)
+
+
+    
+
     
 def add_oldauthor(message):
     authoroldname = message.text
@@ -71,13 +99,10 @@ def add_oldauthor(message):
     booksidsnodeup = list(dict.fromkeys(books_unique_ids))
     for book_data in booksidsnodeup:
         book_unique_id = book_data[0]
-        print(book_unique_id)
         book_name = c.execute('SELECT bookname FROM books WHERE book_unique_id=?',(book_unique_id,)).fetchone()[0]
-        print(book_name)
         book_id = c.execute('SELECT bookid FROM books WHERE book_unique_id=?',(book_unique_id,)).fetchone()[0]
-        book_new_name = book_name.split('authoroldname')[0]+authornewname
-        print(book_new_name)
-        c.execute('INSERT INTO books (bookid,book_unique_id,bookname) VALUES (?,?,?)', (book_id,book_unique_id,book_new_name))
+        book_new_name1 = book_name.split('authoroldname')[0]+authornewname
+        c.execute('INSERT INTO books (bookid,book_unique_id,bookname) VALUES (?,?,?)', (book_id,book_unique_id,book_new_name1))
         conn.commit()
     bot.reply_to(message, "تمت إضافة اسم المؤلف ")
 
@@ -175,6 +200,16 @@ def callback_query(call):
         c.execute('DELETE FROM books WHERE book_unique_id=?', (call.data.split('delete')[1],))
         conn.commit()
         bot.edit_message_text("تم حذف الكتاب ",messagetobedeleted1.chat.id,messagetobedeleted1.message_id) 
+    elif 'appendname' in call.data :
+        conn_local = sqlite3.connect('books.db', check_same_thread=False)
+        c_local = conn_local.cursor()
+        book_unique_id = call.data.split('appendname')[1]
+        book_id = c.execute('SELECT bookid FROM books WHERE book_unique_id=?',(book_unique_id,)).fetchone()[0]
+        c.execute('INSERT INTO books (bookid,book_unique_id,bookname) VALUES (?,?,?)', (book_id,book_unique_id,book_new_name))
+        conn.commit()
+        bot.edit_message_text("تمت إضافة الاسم الجديد ",messagetobedeleted2.chat.id,messagetobedeleted2.message_id) 
+
+
 
 
 
