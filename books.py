@@ -33,6 +33,59 @@ def start(message):
     cmd(f'''sudo uploadgram -1001821573758 books.db''')
 
 
+@bot.message_handler(commands=['append_author'])
+def start(message):
+    bot.reply_to(message, "الآن أرسل اسم المؤلف المراد إضافته")
+    bot.register_next_step_handler(message, add_author)
+    
+@bot.message_handler(commands=['delete_book'])
+def start(message): 
+    bot.reply_to(message, "الآن أرسل اسم الكتاب المراد حذفه")
+    bot.register_next_step_handler(message, delete_book)
+
+def delete_book(message):
+    conn_local = sqlite3.connect('books.db', check_same_thread=False)
+    c_local = conn_local.cursor()
+    bookresult = c.execute('SELECT book_unique_id FROM books WHERE bookname LIKE ? ',(f"%{message.text}%",)).fetchall()
+    bookidnodeup = list(dict.fromkeys(bookresult))
+    markup = telebot.types.InlineKeyboardMarkup()
+    for book_data in bookidnodeup:
+                    book_unique_id = book_data[0]
+                    book_name = c.execute('SELECT bookname FROM books WHERE book_unique_id=?',(book_unique_id,)).fetchone()[0]
+                    markup.add(telebot.types.InlineKeyboardButton(book_name, callback_data=f"delete{book_unique_id}"))
+    global messagetobedeleted1
+    messagetobedeleted1 = bot.send_message(message.chat.id, "نتائج البحث", reply_markup=markup)
+
+
+def add_author(message):
+    global authornewname
+    authornewname = message.text
+    bot.reply_to(message, "الآن أرسل اسم المؤلف الأصلي ")
+    bot.register_next_step_handler(message,add_oldauthor)
+    
+def add_oldauthor(message):
+    authoroldname = message.text
+    conn_local = sqlite3.connect('books.db', check_same_thread=False)
+    c_local = conn_local.cursor()
+    books_unique_ids = c.execute('SELECT book_unique_id FROM books WHERE bookname LIKE ?',(f"%{authoroldname}%",)).fetchall()
+    booksidsnodeup = list(dict.fromkeys(books_unique_ids))
+    for book_data in booksidsnodeup:
+        book_unique_id = book_data[0]
+        print(book_unique_id)
+        book_name = c.execute('SELECT bookname FROM books WHERE book_unique_id=?',(book_unique_id,)).fetchone()[0]
+        print(book_name)
+        book_id = c.execute('SELECT bookid FROM books WHERE book_unique_id=?',(book_unique_id,)).fetchone()[0]
+        book_new_name = book_name.split('authoroldname')[0]+authornewname
+        print(book_new_name)
+        c.execute('INSERT INTO books (bookid,book_unique_id,bookname) VALUES (?,?,?)', (book_id,book_unique_id,book_new_name))
+        conn.commit()
+    bot.reply_to(message, "تمت إضافة اسم المؤلف ")
+
+    
+
+
+
+
 @bot.message_handler(content_types=['text','document'])
 @bot.message_handler(func=lambda message: True)
 def echo(message):
@@ -52,7 +105,7 @@ def echo(message):
                 for book_data in bookidnodeup:
                     book_unique_id = book_data[0]
                     book_name = c.execute('SELECT bookname FROM books WHERE book_unique_id=?',(book_unique_id,)).fetchone()[0]
-                    markup.add(telebot.types.InlineKeyboardButton(book_name, callback_data=book_unique_id))
+                    markup.add(telebot.types.InlineKeyboardButton(book_name, callback_data=f"get{book_unique_id}"))
                 messagetobedeleted = bot.send_message(message.chat.id, "نتائج البحث", reply_markup=markup)
 
 
@@ -63,12 +116,13 @@ def echo(message):
                 bot.reply_to(message, "لا يوجد الكتاب في قاعدة البيانات , أرسله فضلاً هنا")
             else :
                 bookresult = c.execute('SELECT book_unique_id FROM books WHERE bookname LIKE ? ',(f"%{message.text}%",)).fetchall()
+                print(bookresult)
                 bookidnodeup = list(dict.fromkeys(bookresult))
                 markup = telebot.types.InlineKeyboardMarkup()
                 for book_data in bookidnodeup:
                     book_unique_id = book_data[0]
                     book_name = c.execute('SELECT bookname FROM books WHERE book_unique_id=?',(book_unique_id,)).fetchone()[0]
-                    markup.add(telebot.types.InlineKeyboardButton(book_name, callback_data=book_unique_id))
+                    markup.add(telebot.types.InlineKeyboardButton(book_name, callback_data=f"get{book_unique_id}"))
                 messagetobedeleted = bot.send_message(message.chat.id, "نتائج البحث", reply_markup=markup)
         
 
@@ -109,11 +163,21 @@ def check_exist(book_name):
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
-    conn_local = sqlite3.connect('books.db', check_same_thread=False)
-    c_local = conn_local.cursor()
-    book_id = c.execute('SELECT bookid FROM books WHERE book_unique_id=?',(call.data,)).fetchone()[0]
-    bot.edit_message_text("تم الإرسال",messagetobedeleted.chat.id,messagetobedeleted.message_id) 
-    bot.send_document(user_id, book_id)
+    if 'get' in call.data :
+        conn_local = sqlite3.connect('books.db', check_same_thread=False)
+        c_local = conn_local.cursor()
+        book_id = c.execute('SELECT bookid FROM books WHERE book_unique_id=?',(call.data.split('get')[1],)).fetchone()[0]
+        bot.edit_message_text("تم الإرسال",messagetobedeleted.chat.id,messagetobedeleted.message_id) 
+        bot.send_document(user_id, book_id)
+    elif 'delete' in call.data :
+        conn_local = sqlite3.connect('books.db', check_same_thread=False)
+        c_local = conn_local.cursor()
+        c.execute('DELETE FROM books WHERE book_unique_id=?', (call.data.split('delete')[1],))
+        conn.commit()
+        bot.edit_message_text("تم حذف الكتاب ",messagetobedeleted1.chat.id,messagetobedeleted1.message_id) 
+
+
+
 
 
 bot.polling(non_stop=True, skip_pending=True)
